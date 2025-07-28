@@ -5,6 +5,9 @@
  * Main entry point for the CLI tool
  */
 
+// Load environment variables
+require('dotenv').config();
+
 const Logger = require('./src/core/logger');
 const Notifier = require('./src/core/notifier');
 const ConfigManager = require('./src/core/config');

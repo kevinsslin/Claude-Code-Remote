@@ -58,9 +58,9 @@ class EmailChannel extends NotificationChannel {
                     pass: this.config.smtp.auth.pass
                 },
                 // Add timeout settings
-                connectionTimeout: 10000,
-                greetingTimeout: 10000,
-                socketTimeout: 10000
+                connectionTimeout: parseInt(process.env.SMTP_TIMEOUT) || 10000,
+                greetingTimeout: parseInt(process.env.SMTP_TIMEOUT) || 10000,
+                socketTimeout: parseInt(process.env.SMTP_TIMEOUT) || 10000
             });
 
             this.logger.debug('Email transporter initialized');
