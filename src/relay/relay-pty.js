@@ -89,12 +89,10 @@ function isAllowed(fromAddress) {
     return ALLOWED_SENDERS.some(allowed => addr.includes(allowed));
 }
 
-// Extract TaskPing token from subject
+// Extract Claude-Code-Remote token from subject
 function extractTokenFromSubject(subject = '') {
     const patterns = [
-        /\[TaskPing\s+#([A-Za-z0-9_-]+)\]/,
-        /\[TaskPing\s+([A-Za-z0-9_-]+)\]/,
-        /TaskPing:\s*([A-Za-z0-9_-]+)/i
+        /\[Claude-Code-Remote\s+#([A-Z0-9]+)\]/
     ];
     
     for (const pattern of patterns) {
