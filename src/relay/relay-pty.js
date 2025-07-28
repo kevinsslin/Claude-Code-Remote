@@ -92,7 +92,8 @@ function isAllowed(fromAddress) {
 // Extract Claude-Code-Remote token from subject
 function extractTokenFromSubject(subject = '') {
     const patterns = [
-        /\[Claude-Code-Remote\s+#([A-Z0-9]+)\]/
+        /\[Claude-Code-Remote\s+#([A-Z0-9]+)\]/,
+        /Re:\s*\[Claude-Code-Remote\s+#([A-Z0-9]+)\]/
     ];
     
     for (const pattern of patterns) {
