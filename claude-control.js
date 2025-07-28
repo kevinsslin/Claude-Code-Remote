@@ -234,7 +234,7 @@ class RemoteControlSetup {
         
         console.log('📱 Email testing:');
         console.log('   Token will include session information, automatically routing to correct tmux session');
-        console.log('   Recipient email: jiaxicui446@gmail.com');
+        console.log(`   Recipient email: ${process.env.EMAIL_TO}`);
         console.log('   Reply with command: echo "Remote control test"\n');
         
         console.log('🚨 Important reminders:');
