@@ -42,6 +42,48 @@ class EmailChannel extends NotificationChannel {
         return token;
     }
 
+    _formatClaudeResponse(response) {
+        if (!response || typeof response !== 'string') {
+            return response;
+        }
+
+        // Split response into paragraphs for better formatting
+        let formatted = response
+            // Handle code blocks (```language or ```)
+            .replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                const language = lang || 'text';
+                return `<div style="background-color: #1a1a1a; border: 1px solid #525252; border-radius: 4px; padding: 12px; margin: 10px 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 13px; overflow-x: auto;">
+                    <div style="color: #888; font-size: 11px; margin-bottom: 6px; text-transform: uppercase;">${language}</div>
+                    <pre style="margin: 0; color: #e0e0e0; white-space: pre-wrap;">${code.trim()}</pre>
+                </div>`;
+            })
+            // Handle inline code (`code`)
+            .replace(/`([^`]+)`/g, '<code style="background-color: #404040; color: #fbbf24; padding: 2px 4px; border-radius: 3px; font-family: monospace; font-size: 13px;">$1</code>')
+            // Handle bullet points
+            .replace(/^[\s]*[-*]\s+(.+)$/gm, '<div style="margin: 4px 0; padding-left: 20px; position: relative;"><span style="position: absolute; left: 0; color: #fbbf24;">•</span>$1</div>')
+            // Handle numbered lists
+            .replace(/^[\s]*(\d+)\.\s+(.+)$/gm, '<div style="margin: 4px 0; padding-left: 25px; position: relative;"><span style="position: absolute; left: 0; color: #60a5fa; font-weight: 600;">$1.</span>$2</div>')
+            // Handle headers (## Header)
+            .replace(/^##\s+(.+)$/gm, '<h4 style="color: #4ade80; font-size: 16px; font-weight: 600; margin: 15px 0 8px 0; border-bottom: 1px solid #525252; padding-bottom: 4px;">$1</h4>')
+            // Handle bold text
+            .replace(/\*\*([^*]+)\*\*/g, '<strong style="color: #ffffff; font-weight: 600;">$1</strong>')
+            // Handle italic text
+            .replace(/\*([^*]+)\*/g, '<em style="color: #d1d1d1; font-style: italic;">$1</em>')
+            // Handle line breaks - convert double newlines to paragraph breaks
+            .replace(/\n\n/g, '</p><p style="margin: 12px 0; line-height: 1.6;">')
+            // Handle single newlines
+            .replace(/\n/g, '<br>');
+
+        // Wrap in paragraph tags if not already formatted
+        if (!formatted.includes('<p') && !formatted.includes('<div') && !formatted.includes('<h')) {
+            formatted = `<p style="margin: 12px 0; line-height: 1.6;">${formatted}</p>`;
+        } else if (formatted.includes('</p><p')) {
+            formatted = `<p style="margin: 12px 0; line-height: 1.6;">${formatted}</p>`;
+        }
+
+        return formatted;
+    }
+
     _initializeTransporter() {
         if (!this.config.smtp) {
             this.logger.warn('SMTP configuration not found');
@@ -243,7 +285,7 @@ class EmailChannel extends NotificationChannel {
             token: token,
             type: notification.type === 'completed' ? 'Task completed' : 'Waiting for input',
             userQuestion: userQuestion || 'No specified task',
-            claudeResponse: claudeResponse || notification.message,
+            claudeResponse: this._formatClaudeResponse(claudeResponse || notification.message),
             projectDir: projectDir,
             shortQuestion: shortQuestion || 'No specific question'
         };
@@ -269,126 +311,334 @@ class EmailChannel extends NotificationChannel {
             completed: {
                 subject: '[Claude-Code-Remote #{{token}}] Claude Code Task Completed - {{project}}',
                 html: `
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-                    <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                        <h2 style="color: #2c3e50; margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
-                            🎉 Claude Code Task Completed
-                        </h2>
-                        
-                        <div style="background-color: #ecf0f1; padding: 15px; border-radius: 6px; margin: 20px 0;">
-                            <p style="margin: 0; color: #2c3e50;">
-                                <strong>Project:</strong> {{projectDir}}<br>
-                                <strong>Time:</strong> {{timestamp}}<br>
-                                <strong>Status:</strong> {{type}}
-                            </p>
-                        </div>
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Claude Code Task Completed</title>
+                    <style>
+                        @media only screen and (max-width: 600px) {
+                            .container { width: 100% !important; padding: 10px !important; }
+                            .content { padding: 15px !important; }
+                            h2 { font-size: 18px !important; }
+                            h3 { font-size: 16px !important; }
+                            h4 { font-size: 14px !important; }
+                        }
+                    </style>
+                </head>
+                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #e0e0e0; background-color: #1a1a1a;">
+                    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 20px;">
+                                <table class="container" role="presentation" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #2d2d2d; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border: 1px solid #404040;">
+                                    <!-- Header -->
+                                    <tr>
+                                        <td class="content" style="padding: 40px 30px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-align: center;">
+                                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">🎉 Task Completed</h1>
+                                            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.8;">Claude Code has finished your request</p>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Project Info -->
+                                    <tr>
+                                        <td class="content" style="padding: 30px;">
+                                            <table role="presentation" style="width: 100%; background-color: #4a4a4a; border-radius: 12px; padding: 20px; margin-bottom: 25px; border: 1px solid #666666;">
+                                                <tr>
+                                                    <td style="padding: 10px 0; font-size: 15px; font-weight: 500;">
+                                                        <span style="color: #f0f0f0; display: inline-block; width: 80px;">📁 Project:</span>
+                                                        <span style="color: #10b981; font-weight: 600;">{{projectDir}}</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 10px 0; font-size: 15px; font-weight: 500; border-top: 1px solid #666666;">
+                                                        <span style="color: #f0f0f0; display: inline-block; width: 80px;">⏰ Time:</span>
+                                                        <span style="color: #d0d0d0;">{{timestamp}}</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 10px 0; font-size: 15px; font-weight: 500; border-top: 1px solid #666666;">
+                                                        <span style="color: #f0f0f0; display: inline-block; width: 80px;">✅ Status:</span>
+                                                        <span style="color: #10b981; font-weight: 600;">{{type}}</span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
 
-                        <div style="background-color: #fff3e0; padding: 15px; border-radius: 6px; border-left: 4px solid #ff9800; margin: 20px 0;">
-                            <h4 style="margin-top: 0; color: #e65100;">📝 Your Question</h4>
-                            <p style="margin: 0; color: #2c3e50; font-style: italic;">{{userQuestion}}</p>
-                        </div>
+                                    <!-- Your Question -->
+                                    <tr>
+                                        <td class="content" style="padding: 0 30px 25px;">
+                                            <div style="background-color: #404040; border-radius: 8px; border-left: 4px solid #60a5fa; padding: 20px; margin-bottom: 20px;">
+                                                <h3 style="margin: 0 0 15px 0; color: #60a5fa; font-size: 16px; font-weight: 600;">📝 Your Question</h3>
+                                                <div style="background-color: #2d2d2d; padding: 15px; border-radius: 6px; font-style: italic; color: #e0e0e0; line-height: 1.6; word-wrap: break-word;">
+                                                    {{userQuestion}}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-                        <div style="background-color: #e8f5e8; padding: 15px; border-radius: 6px; border-left: 4px solid #27ae60;">
-                            <h4 style="margin-top: 0; color: #27ae60;">🤖 Claude's Response</h4>
-                            <p style="margin: 0; color: #2c3e50;">{{claudeResponse}}</p>
-                        </div>
+                                    <!-- Claude's Response -->
+                                    <tr>
+                                        <td class="content" style="padding: 0 30px 25px;">
+                                            <div style="background-color: #404040; border-radius: 8px; border-left: 4px solid #10b981; padding: 20px; margin-bottom: 20px;">
+                                                <h3 style="margin: 0 0 15px 0; color: #10b981; font-size: 16px; font-weight: 600;">🤖 Claude's Response</h3>
+                                                <div style="background-color: #2d2d2d; padding: 15px; border-radius: 6px; color: #e0e0e0; line-height: 1.6; word-wrap: break-word;">
+                                                    {{claudeResponse}}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-                        <div style="margin: 25px 0; padding: 20px; background-color: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
-                            <h3 style="margin-top: 0; color: #856404;">💡 How to Continue the Conversation</h3>
-                            <p style="margin: 10px 0; color: #856404;">
-                                To continue conversation with Claude Code, please <strong>reply to this email</strong> directly and enter your instructions in the email body.
-                            </p>
-                            <div style="background-color: white; padding: 10px; border-radius: 4px; font-family: monospace; color: #495057;">
-                                Example replies:<br>
-                                • "Please continue optimizing the code"<br>
-                                • "Generate unit tests"<br>
-                                • "Explain the purpose of this function"
-                            </div>
-                        </div>
+                                    <!-- How to Continue -->
+                                    <tr>
+                                        <td class="content" style="padding: 0 30px 30px;">
+                                            <div style="background-color: #404040; border-radius: 8px; border-left: 4px solid #fbbf24; padding: 20px;">
+                                                <h3 style="margin: 0 0 15px 0; color: #fbbf24; font-size: 16px; font-weight: 600;">💬 Continue the Conversation</h3>
+                                                <p style="margin: 0 0 15px 0; color: #e0e0e0; line-height: 1.6; font-size: 15px;">
+                                                    To continue working with Claude Code, simply <strong>reply to this email</strong> and type your next instructions.
+                                                </p>
+                                                <div style="background-color: #2d2d2d; padding: 15px; border-radius: 6px;">
+                                                    <p style="margin: 0 0 10px 0; font-weight: 600; color: #d1d1d1; font-size: 14px;">💡 Example replies:</p>
+                                                    <ul style="margin: 0; padding-left: 20px; color: #a1a1a1; line-height: 1.6;">
+                                                        <li>"Please continue optimizing the code"</li>
+                                                        <li>"Generate unit tests for this function"</li>
+                                                        <li>"Explain how this works"</li>
+                                                        <li>"Add more detailed comments"</li>
+                                                        <li>"Fix any potential bugs"</li>
+                                                        <li>"Refactor this for better performance"</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; font-size: 12px; color: #6c757d;">
-                            <p style="margin: 5px 0;">Session ID: <code>{{sessionId}}</code></p>
-                            <p style="margin: 5px 0;">🔒 Security note: Please do not forward this email, session will automatically expire after 24 hours</p>
-                            <p style="margin: 5px 0;">📧 This is an automated email from Claude-Code-Remote</p>
-                        </div>
-                    </div>
-                </div>
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td class="content" style="padding: 20px 30px; background-color: #333333; border-top: 1px solid #525252;">
+                                            <table role="presentation" style="width: 100%;">
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #a1a1a1; line-height: 1.5;">
+                                                        <p style="margin: 6px 0;">
+                                                            <span style="color: #d1d1d1;">🆔 Session ID:</span> 
+                                                            <code style="background-color: #404040; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; color: #e0e0e0;">{{sessionId}}</code>
+                                                        </p>
+                                                        <p style="margin: 6px 0;">🔒 <strong>Security:</strong> Do not forward this email. Session expires in 24 hours.</p>
+                                                        <p style="margin: 6px 0;">📧 Automated message from Claude-Code-Remote</p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
                 `,
                 text: `
 [Claude-Code-Remote #{{token}}] Claude Code Task Completed - {{projectDir}} | {{shortQuestion}}
 
-Project: {{projectDir}}
-Time: {{timestamp}}
-Status: {{type}}
+═══════════════════════════════════════════════════════════════════════════════════
+🎉 CLAUDE CODE TASK COMPLETED
+═══════════════════════════════════════════════════════════════════════════════════
 
-📝 Your Question:
+📁 Project: {{projectDir}}
+⏰ Time: {{timestamp}}
+✅ Status: {{type}}
+
+───────────────────────────────────────────────────────────────────────────────────
+📝 YOUR QUESTION:
+───────────────────────────────────────────────────────────────────────────────────
 {{userQuestion}}
 
-🤖 Claude's Response:
+───────────────────────────────────────────────────────────────────────────────────
+🤖 CLAUDE'S RESPONSE:
+───────────────────────────────────────────────────────────────────────────────────
 {{claudeResponse}}
 
-How to Continue Conversation:
-To continue conversation with Claude Code, please reply to this email directly and enter your instructions in the email body.
+═══════════════════════════════════════════════════════════════════════════════════
+💬 CONTINUE THE CONVERSATION
+═══════════════════════════════════════════════════════════════════════════════════
 
-Example Replies:
-• "Please continue optimizing the code"
-• "Generate unit tests"  
-• "Explain the purpose of this function"
+To continue working with Claude Code, simply reply to this email and type your 
+next instructions.
 
-Session ID: {{sessionId}}
-Security Note: Please do not forward this email, session will automatically expire after 24 hours
+💡 EXAMPLE REPLIES:
+  • "Please continue optimizing the code"
+  • "Generate unit tests for this function"
+  • "Explain how this works"
+  • "Add more detailed comments"
+  • "Fix any potential bugs"  
+  • "Refactor this for better performance"
+
+───────────────────────────────────────────────────────────────────────────────────
+📋 SESSION INFO
+───────────────────────────────────────────────────────────────────────────────────
+🆔 Session ID: {{sessionId}}
+🔒 Security: Do not forward this email. Session expires in 24 hours.
+📧 Automated message from Claude-Code-Remote
+
+═══════════════════════════════════════════════════════════════════════════════════
                 `
             },
             waiting: {
                 subject: '[Claude-Code-Remote #{{token}}] Claude Code Waiting for Input - {{project}}',
                 html: `
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-                    <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                        <h2 style="color: #2c3e50; margin-top: 0; border-bottom: 2px solid #e74c3c; padding-bottom: 10px;">
-                            ⏳ Claude Code Waiting for Your Guidance
-                        </h2>
-                        
-                        <div style="background-color: #ecf0f1; padding: 15px; border-radius: 6px; margin: 20px 0;">
-                            <p style="margin: 0; color: #2c3e50;">
-                                <strong>Project:</strong> {{projectDir}}<br>
-                                <strong>Time:</strong> {{timestamp}}<br>
-                                <strong>Status:</strong> {{type}}
-                            </p>
-                        </div>
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Claude Code Waiting for Input</title>
+                    <style>
+                        @media only screen and (max-width: 600px) {
+                            .container { width: 100% !important; padding: 10px !important; }
+                            .content { padding: 15px !important; }
+                            h2 { font-size: 18px !important; }
+                            h3 { font-size: 16px !important; }
+                            h4 { font-size: 14px !important; }
+                        }
+                    </style>
+                </head>
+                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #e0e0e0; background-color: #1a1a1a;">
+                    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 20px;">
+                                <table class="container" role="presentation" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #2d2d2d; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border: 1px solid #404040;">
+                                    <!-- Header -->
+                                    <tr>
+                                        <td class="content" style="padding: 40px 30px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #1a1a1a; text-align: center;">
+                                            <h1 style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">⏳ Waiting for Input</h1>
+                                            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.8;">Claude Code needs your guidance</p>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Project Info -->
+                                    <tr>
+                                        <td class="content" style="padding: 30px;">
+                                            <table role="presentation" style="width: 100%; background-color: #4a4a4a; border-radius: 12px; padding: 20px; margin-bottom: 25px; border: 1px solid #666666;">
+                                                <tr>
+                                                    <td style="padding: 10px 0; font-size: 15px; font-weight: 500;">
+                                                        <span style="color: #f0f0f0; display: inline-block; width: 80px;">📁 Project:</span>
+                                                        <span style="color: #f59e0b; font-weight: 600;">{{projectDir}}</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 10px 0; font-size: 15px; font-weight: 500; border-top: 1px solid #666666;">
+                                                        <span style="color: #f0f0f0; display: inline-block; width: 80px;">⏰ Time:</span>
+                                                        <span style="color: #d0d0d0;">{{timestamp}}</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 10px 0; font-size: 15px; font-weight: 500; border-top: 1px solid #666666;">
+                                                        <span style="color: #f0f0f0; display: inline-block; width: 80px;">⏳ Status:</span>
+                                                        <span style="color: #f59e0b; font-weight: 600;">{{type}}</span>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
 
-                        <div style="background-color: #fdf2e9; padding: 15px; border-radius: 6px; border-left: 4px solid #e67e22;">
-                            <h4 style="margin-top: 0; color: #e67e22;">⏳ Waiting for Processing</h4>
-                            <p style="margin: 0; color: #2c3e50;">{{message}}</p>
-                        </div>
+                                    <!-- Waiting Message -->
+                                    <tr>
+                                        <td class="content" style="padding: 0 30px 25px;">
+                                            <div style="background-color: #404040; border-radius: 8px; border-left: 4px solid #f59e0b; padding: 20px; margin-bottom: 20px;">
+                                                <h3 style="margin: 0 0 15px 0; color: #f59e0b; font-size: 16px; font-weight: 600;">⏳ Processing Status</h3>
+                                                <div style="background-color: #2d2d2d; padding: 15px; border-radius: 6px; color: #e0e0e0; line-height: 1.6; word-wrap: break-word;">
+                                                    {{message}}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-                        <div style="margin: 25px 0; padding: 20px; background-color: #d1ecf1; border-radius: 6px; border-left: 4px solid #17a2b8;">
-                            <h3 style="margin-top: 0; color: #0c5460;">💬 Please Provide Guidance</h3>
-                            <p style="margin: 10px 0; color: #0c5460;">
-                                Claude needs your further guidance. Please <strong>reply to this email</strong> to tell Claude what to do next.
-                            </p>
-                        </div>
+                                    <!-- Please Provide Guidance -->
+                                    <tr>
+                                        <td class="content" style="padding: 0 30px 30px;">
+                                            <div style="background-color: #404040; border-radius: 8px; border-left: 4px solid #60a5fa; padding: 20px;">
+                                                <h3 style="margin: 0 0 15px 0; color: #60a5fa; font-size: 16px; font-weight: 600;">💬 Provide Guidance</h3>
+                                                <p style="margin: 0 0 15px 0; color: #e0e0e0; line-height: 1.6; font-size: 15px;">
+                                                    Claude needs your further guidance. Please <strong>reply to this email</strong> and tell Claude what to do next.
+                                                </p>
+                                                <div style="background-color: #2d2d2d; padding: 15px; border-radius: 6px;">
+                                                    <p style="margin: 0 0 10px 0; font-weight: 600; color: #d1d1d1; font-size: 14px;">💡 Example replies:</p>
+                                                    <ul style="margin: 0; padding-left: 20px; color: #a1a1a1; line-height: 1.6;">
+                                                        <li>"Please read this file's content"</li>
+                                                        <li>"Help me fix this error"</li>
+                                                        <li>"Continue the previous work"</li>
+                                                        <li>"Commit these changes to git"</li>
+                                                        <li>"Run the tests"</li>
+                                                        <li>"Explain what this does"</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; font-size: 12px; color: #6c757d;">
-                            <p style="margin: 5px 0;">Session ID: <code>{{sessionId}}</code></p>
-                            <p style="margin: 5px 0;">🔒 Security note: Please do not forward this email, session will automatically expire after 24 hours</p>
-                            <p style="margin: 5px 0;">📧 This is an automated email from Claude-Code-Remote</p>
-                        </div>
-                    </div>
-                </div>
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td class="content" style="padding: 20px 30px; background-color: #333333; border-top: 1px solid #525252;">
+                                            <table role="presentation" style="width: 100%;">
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #a1a1a1; line-height: 1.5;">
+                                                        <p style="margin: 6px 0;">
+                                                            <span style="color: #d1d1d1;">🆔 Session ID:</span> 
+                                                            <code style="background-color: #404040; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; color: #e0e0e0;">{{sessionId}}</code>
+                                                        </p>
+                                                        <p style="margin: 6px 0;">🔒 <strong>Security:</strong> Do not forward this email. Session expires in 24 hours.</p>
+                                                        <p style="margin: 6px 0;">📧 Automated message from Claude-Code-Remote</p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
                 `,
                 text: `
 [Claude-Code-Remote #{{token}}] Claude Code Waiting for Input - {{projectDir}}
 
-Project: {{projectDir}}
-Time: {{timestamp}}
-Status: {{type}}
+═══════════════════════════════════════════════════════════════════════════════════
+⏳ CLAUDE CODE WAITING FOR INPUT
+═══════════════════════════════════════════════════════════════════════════════════
 
-⏳ Waiting for Processing: {{message}}
+📁 Project: {{projectDir}}
+⏰ Time: {{timestamp}}
+⏳ Status: {{type}}
 
-Claude needs your further guidance. Please reply to this email to tell Claude what to do next.
+───────────────────────────────────────────────────────────────────────────────────
+⏳ PROCESSING STATUS:
+───────────────────────────────────────────────────────────────────────────────────
+{{message}}
 
-Session ID: {{sessionId}}
-Security Note: Please do not forward this email, session will automatically expire after 24 hours
+═══════════════════════════════════════════════════════════════════════════════════
+💬 PROVIDE GUIDANCE
+═══════════════════════════════════════════════════════════════════════════════════
+
+Claude needs your further guidance. Please reply to this email and tell Claude 
+what to do next.
+
+💡 EXAMPLE REPLIES:
+  • "Please read this file's content"
+  • "Help me fix this error"
+  • "Continue the previous work"
+  • "Commit these changes to git"
+  • "Run the tests"
+  • "Explain what this does"
+
+───────────────────────────────────────────────────────────────────────────────────
+📋 SESSION INFO
+───────────────────────────────────────────────────────────────────────────────────
+🆔 Session ID: {{sessionId}}
+🔒 Security: Do not forward this email. Session expires in 24 hours.
+📧 Automated message from Claude-Code-Remote
+
+═══════════════════════════════════════════════════════════════════════════════════
                 `
             }
         };
